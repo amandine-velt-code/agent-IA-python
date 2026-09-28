@@ -1,0 +1,4 @@
+ventes.duckdb
+__pycache__/
+.venv/
+.env

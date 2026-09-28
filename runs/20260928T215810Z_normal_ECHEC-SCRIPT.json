@@ -1,0 +1,33 @@
+{
+ "etiquette": "normal",
+ "versions": {
+  "python": "3.12.11",
+  "anthropic": "1.9.0",
+  "duckdb": "1.5.6",
+  "modele_demande": "deepseek-flash",
+  "base_url": "https://api.deepseek.com/anthropic"
+ },
+ "runs": [
+  {
+   "run": 1,
+   "echec": "ModuleNotFoundError: No module named 'agent'"
+  },
+  {
+   "run": 2,
+   "echec": "ModuleNotFoundError: No module named 'agent'"
+  },
+  {
+   "run": 3,
+   "echec": "ModuleNotFoundError: No module named 'agent'"
+  },
+  {
+   "run": 4,
+   "echec": "ModuleNotFoundError: No module named 'agent'"
+  },
+  {
+   "run": 5,
+   "echec": "ModuleNotFoundError: No module named 'agent'"
+  }
+ ],
+ "note": "Soldes du compte retirés du journal public ; inchangés à l'affichage (arrondi au centime) sur l'ensemble des runs."
+}
