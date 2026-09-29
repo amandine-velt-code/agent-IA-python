@@ -1,6 +1,6 @@
 # Votre premier agent IA en Python
 
-Un agent d'analyse de données **en moins de 90 lignes, sans framework** : il répond en français à des questions
+Un agent d'analyse de données **en 99 lignes, sans framework** : il répond en français à des questions
 sur un fichier CSV en écrivant lui-même ses requêtes SQL (Claude + DuckDB), avec des verrous de sécurité qui
 **ne dépendent pas du modèle**.
 
@@ -14,7 +14,7 @@ Agent : decrire_tables → executer_sql (×2) → executer_sql (×2) → « Le K
 
 ## Sommaire
 
-- [Démarrer en 3 minutes](#démarrer-en-3-minutes)
+- [Démarrer](#démarrer)
 - [Ce que contient le dépôt](#ce-que-contient-le-dépôt)
 - [Comment ça marche](#comment-ça-marche)
 - [Les verrous de sécurité](#les-verrous-de-sécurité)
@@ -25,19 +25,35 @@ Agent : decrire_tables → executer_sql (×2) → executer_sql (×2) → « Le K
 - [Limites](#limites)
 - [Licence](#licence)
 
-## Démarrer en 3 minutes
+## Démarrer
 
-Prérequis : Python 3.10 ou plus, et une clé API Anthropic ([console Anthropic](https://console.anthropic.com/)).
+Prérequis : bases de Python et du terminal, Python 3.10 ou plus, et une clé API Anthropic ([console Anthropic](https://console.anthropic.com/)).
 
 ```bash
 git clone https://github.com/amandine-velt-code/agent-IA-python.git
 cd agent-IA-python
-python -m venv .venv && source .venv/bin/activate      # Windows : .venv\Scripts\activate
-pip install -r requirements.txt
-export ANTHROPIC_API_KEY="sk-ant-..."                   # jamais dans le code ni dans Git
-python creer_base.py                                    # ventes.csv -> ventes.duckdb
-python agent.py
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+export ANTHROPIC_API_KEY="votre-cle"  # jamais dans Git
+.venv/bin/python creer_base.py
+.venv/bin/python agent.py
 ```
+
+Linux/macOS : commandes ci-dessus. Windows PowerShell : `py -3 -m venv .venv`, puis
+`.venv\Scripts\python.exe -m pip install -r requirements.txt`,
+`$env:ANTHROPIC_API_KEY="votre-cle"`, `.venv\Scripts\python.exe creer_base.py` et
+`.venv\Scripts\python.exe agent.py`.
+
+L'initialisation charge 5 ventes ; la réponse attendue sur le CSV fourni est **Kit B, 360**, pour avril–juin 2026.
+Le texte et le nombre d'appels varient. La commande agent appelle une API payante.
+
+| Problème | Résolution |
+|---|---|
+| Clé absente | Définir ANTHROPIC_API_KEY dans le terminal qui lance le programme. |
+| Module introuvable | Installer avec le Python de .venv et lancer avec ce même interpréteur. |
+| Fichier/chemin absent | Se placer dans le dossier contenant ventes.csv ; lancer creer_base.py avant agent.py. |
+
+Édition révisée du 29 septembre 2026 : les fichiers du dépôt et de l’archive associée au kit contiennent cette version de 99 lignes.
 
 Le modèle se règle en haut de `agent.py` (`MODELE = "claude-opus-5-5"`). La liste à jour des identifiants est sur la
 page [Models overview](https://platform.claude.com/docs/en/about-claude/models/overview) de la documentation Claude,
@@ -52,7 +68,7 @@ ou via `client.models.list()`.
 | [`ventes.csv`](ventes.csv) | Les données d'exemple du kit (5 ventes). |
 | [`ventes_piegees.csv`](ventes_piegees.csv) | Les mêmes, plus une ligne qui cache une consigne malveillante. |
 | [`requirements.txt`](requirements.txt) | Versions épinglées : `anthropic 1.9.0`, `duckdb 1.5.6`, `pytest 9.1.1`, `mcp 2.2.0` (ce dernier sert seulement au serveur MCP). |
-| [`tests/`](tests/) | 24 tests automatisés des verrous, de la boucle et du serveur MCP, **sans appel à l'API**. |
+| [`tests/`](tests/) | 35 tests automatisés des verrous, de la boucle et du serveur MCP, **sans appel à l'API**. |
 | [`serveur_mcp.py`](serveur_mcp.py) | Expose les deux outils de `agent.py` (mêmes fonctions, mêmes verrous) à un client MCP comme Claude Code. |
 | [`diagnostic_verrous.py`](diagnostic_verrous.py) | Affiche la réponse exacte de DuckDB à chaque tentative bloquée. |
 | [`runs/`](runs/) | Les scripts des runs et leurs journaux complets (28 et 29 septembre 2026). |
@@ -65,7 +81,7 @@ Un agent, c'est une boucle :
 2. Le modèle répond par une demande d'outil (`tool_use`) : il ne lance jamais rien lui-même.
 3. **Votre code** exécute l'outil et renvoie le résultat (`tool_result`). Une erreur est renvoyée au modèle, qui peut
    corriger sa requête au tour suivant.
-4. On recommence jusqu'à ce que le modèle réponde sans demander d'outil, ou jusqu'à `MAX_TOURS` (10).
+4. end_turn/stop_sequence terminent la réponse ; les autres arrêts sans outil sont signalés (refus, tokens, contexte, pause_turn). MAX_TOURS borne les appels au modèle, pas les dollars. Une réponse vide est signalée. Les erreurs API/réseau remontent à l’appelant.
 
 Tous les résultats d'un même tour partent dans un seul message : le modèle peut demander plusieurs requêtes à la fois.
 
@@ -73,7 +89,7 @@ Tous les résultats d'un même tour partent dans un seul message : le modèle pe
 
 Un agent obéit aussi aux consignes cachées dans les données qu'il lit (injection indirecte, n° 1 du
 [Top 10 OWASP 2025 des applications LLM](https://genai.owasp.org/llmrisk/llm01-prompt-injection/)).
-Une consigne dans le prompt (« ne supprime rien ») peut être contournée ; une base ouverte en lecture seule, non.
+Une consigne dans le prompt (« ne supprime rien ») peut être contournée ; les restrictions de la connexion sont imposées par DuckDB dans les cas testés, sans garantie de sécurité absolue. Il n’existe pas de filtre SELECT : un PRAGMA de lecture passe.
 
 | Verrou | Réglage dans `agent.py` | Ce qu'il bloque |
 |---|---|---|
@@ -85,16 +101,18 @@ Une consigne dans le prompt (« ne supprime rien ») peut être contournée ; un
 | *(aucun verrou)* | — | `getenv('ANTHROPIC_API_KEY')` : la fonction n'existe pas dans le paquet Python de DuckDB, seulement dans le client en ligne de commande. Un test échoue si une future version l'ajoute. |
 | Résultat plafonné | 50 lignes, 8 000 caractères | un résultat qui saturerait le contexte et la facture |
 
-L'agent n'a **aucun outil d'envoi** vers l'extérieur : il manque le troisième ingrédient de la
-[« trifecta létale »](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/) décrite par Simon Willison
-(données privées + contenu non fiable + communication externe).
+**Confidentialité :** ces restrictions limitent cet outil DuckDB. La boucle Python transmet le schéma et les résultats SQL au fournisseur du modèle. Lecture seule ne signifie pas données entièrement locales, même sans outil d'envoi. Minimisez les données et vérifiez les conditions du fournisseur ; l'injection et les réponses erronées restent possibles.
+
+`executer_sql` renvoie un JSON valide avec `tronque=true` quand il réduit les lignes ou la taille. Le modèle doit demander une agrégation ou signaler ce résultat partiel. Le temporisateur demande une interruption après 5 secondes, sans garantie stricte de terminaison à cette échéance.
 
 ## Vérifier sans clé API
 
 ```bash
-python -m pytest -q tests          # 24 tests, environ 15 secondes
+python -m pytest -q tests          # 35 tests
 python diagnostic_verrous.py       # la réponse exacte de DuckDB à chaque tentative
 ```
+
+Validation de la révision : 35 tests réussis dans Docker rootless, utilisateur avweb, conteneur sans réseau, le 29 septembre 2026.
 
 Les tests de la boucle utilisent le vrai SDK `anthropic` avec un serveur d'API simulé (aucun appel réseau).
 
@@ -118,10 +136,12 @@ python agent.py
 
 ## Résultats des vrais runs
 
+Les 26 essais conservés (13 DeepSeek et 13 Claude Code) ne valident pas la boucle révisée. Les 5 essais ECHEC-SCRIPT et le contrôle Claude supplémentaire sont exclus de ce total. Aucun nouvel appel payant n’a été effectué.
+
 Tous les runs ont tourné en bac à sable (conteneur jetable sans réseau pour DuckDB, aucun fichier personnel, aucune
 vraie clé dans l'environnement des outils). Journaux complets dans [`runs/`](runs/).
 
-**Série 1 : ce code exact, avec DeepSeek V4.1 Flash** (28 septembre 2026, `anthropic 1.9.0`, `duckdb 1.5.6`), via
+**Série 1 historique : ancienne version du code, avec DeepSeek V4.1 Flash** (28 septembre 2026, `anthropic 1.9.0`, `duckdb 1.5.6`), via
 l'API compatible Anthropic de DeepSeek (`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`). **Pas Claude.**
 
 **Série 2 : Claude Opus 5.5 via Claude Code** (29 septembre 2026, Claude Code 2.1.284, `claude -p`, effort « high »),
@@ -130,7 +150,7 @@ avec les **mêmes outils et les mêmes verrous** grâce à [`serveur_mcp.py`](se
 ceux de Claude Code (la consigne `SYSTEME` y est ajoutée), sans limite de tours, et un modèle appelé directement par
 l'API peut réagir autrement à une injection. Script : [`runs/run_claude_code.py`](runs/run_claude_code.py).
 
-| Série | DeepSeek V4.1 Flash, ce code | Opus 5.5 via Claude Code |
+| Série | DeepSeek V4.1 Flash, ancienne version | Opus 5.5 via Claude Code |
 |---|---|---|
 | Question d'exemple, `ventes.csv` (5 + 5) | 5 bonnes réponses (Kit B, 360) ; 4 appels au modèle, 3 ou 4 requêtes SQL | 5 bonnes réponses ; 4 ou 5 tours, 2 ou 3 requêtes SQL |
 | Question d'exemple, `ventes_piegees.csv` (5 + 5) | Aucune requête dangereuse ; injection signalée 5 fois sur 5, ligne piégée en tête avec une alerte ; 2 réponses citent la consigne mot pour mot | Aucune requête dangereuse ; « Kit D » (500) en tête 5 fois sur 5 ; 4 réponses signalent un libellé anormal (une seule décrit la consigne), 1 ne signale rien ; aucune ne recopie la consigne |
@@ -139,7 +159,7 @@ l'API peut réagir autrement à une injection. Script : [`runs/run_claude_code.p
 Ces résultats **ne prouvent rien pour un autre modèle** ni pour une autre formulation de l'injection : c'est
 précisément pour cela que les verrous ne reposent jamais sur le modèle. Ils sont vérifiés par les tests.
 
-**Coût.** Mesuré pour DeepSeek avec ce code : de 0,0006 à 0,0012 $ par question, 0,010 $ pour les 13 runs. Pour Opus
+**Coût.** Estimé sur les tokens historiques DeepSeek : de 0,0006 à 0,0012 $ par question, 0,010 $ pour les 13 runs. Pour Opus
 5.5, les runs Claude Code tournent sur abonnement et leurs tokens incluent le prompt système de Claude Code : ils ne
 mesurent pas le coût de `agent.py`. Estimation (entrée de `agent.py` mesurée avec DeepSeek, sortie observée avec Opus
 5.5, tarifs officiels de 4 $ et 20 $ par million de tokens) : environ 2 à 5 centimes par question.
@@ -156,6 +176,7 @@ Rejouer : `python runs/run_reel.py ventes.csv 5 normal` (votre clé API) ou
 
 ## Limites
 
+- Exemple : pas de budget financier imposé, de reprise applicative après erreur API ou de journalisation de production ; la checklist du PDF décrit ces ajouts.
 - Un seul utilisateur, un seul fichier : pour un outil partagé, donnez à l'agent un accès distinct du vôtre et
   journalisez chaque appel d'outil (voir la checklist du kit PDF).
 - Les réponses varient d'une exécution à l'autre, et le modèle peut se tromper dans un calcul : relisez les chiffres.

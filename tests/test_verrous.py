@@ -72,7 +72,32 @@ def test_requete_trop_gourmande_refusee(agent):
 
 
 def test_resultat_plafonne(agent):
-    r = sql(agent, "SELECT range, repeat('x', 500) AS texte FROM range(1000)")
-    assert len(r) <= agent.MAX_CARACTERES + 30 and r.endswith("[résultat tronqué]")
+    # Trop de caractères : des lignes sont retirées, le JSON reste valide et signale la troncature
+    brut = sql(agent, "SELECT range, repeat('x', 500) AS texte FROM range(1000)")
+    r = json.loads(brut)
+    assert len(brut) <= agent.MAX_CARACTERES and r["tronque"] is True and 0 < len(r["lignes"]) < agent.MAX_LIGNES
+    # Trop de lignes : 50 au plus, et le modèle sait qu'il en reste
     r = json.loads(sql(agent, "SELECT range FROM range(1000)"))
-    assert len(r["lignes"]) == agent.MAX_LIGNES
+    assert len(r["lignes"]) == agent.MAX_LIGNES and r["tronque"] is True
+    # Résultat complet : rien n'est signalé à tort
+    r = json.loads(sql(agent, "SELECT range FROM range(50)"))
+    assert len(r["lignes"]) == 50 and r["tronque"] is False
+
+
+def test_metadonnees_trop_longues_refusees(agent, monkeypatch):
+    monkeypatch.setattr(agent, "MAX_CARACTERES", 80)
+    with pytest.raises(ValueError, match="Métadonnées trop longues"):
+        sql(agent, 'SELECT 1 AS "' + 'colonne' * 40 + '"')
+
+
+def test_une_ligne_trop_longue_json_partiel_valide(agent):
+    brut = sql(agent, "SELECT repeat('x', 10000) AS texte")
+    r = json.loads(brut)
+    assert len(brut) <= agent.MAX_CARACTERES
+    assert r["tronque"] is True and r["lignes"] == []
+
+
+def test_description_select_ne_filtre_pas_le_sql(agent):
+    # Pas de filtre SELECT dans ce kit : PRAGMA reste possible, sans modifier la base.
+    r = json.loads(sql(agent, "PRAGMA table_info('ventes')"))
+    assert len(r["lignes"]) == 4

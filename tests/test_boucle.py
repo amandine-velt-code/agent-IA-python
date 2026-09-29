@@ -3,6 +3,7 @@ import json
 
 import anthropic
 import httpx2
+import pytest
 
 REQUETE = ("SELECT produit, SUM(quantite * prix_unitaire) AS ca FROM ventes "
            "WHERE date BETWEEN '2026-04-01' AND '2026-06-30' GROUP BY produit ORDER BY ca DESC")
@@ -57,3 +58,40 @@ def test_limite_de_tours(agent, monkeypatch):
     monkeypatch.setattr(agent.anthropic, "Anthropic",
                         lambda: vrai(api_key="test", http_client=anthropic.DefaultHttpxClient(transport=transport)))
     assert agent.agent("boucle") == "Arrêt : nombre maximal de tours atteint."
+
+
+def reponse_fixe(stop_reason, texte):
+    def handler(request):
+        return httpx2.Response(200, json={"id": "m", "type": "message", "role": "assistant", "model": "x",
+                                          "content": [{"type": "text", "text": texte}],
+                                          "stop_reason": stop_reason, "stop_sequence": None,
+                                          "usage": {"input_tokens": 1, "output_tokens": 1}})
+    return handler
+
+
+@pytest.mark.parametrize("stop_reason", ["max_tokens", "refusal", "model_context_window_exceeded", "pause_turn"])
+def test_arret_anormal_signale(agent, monkeypatch, stop_reason):
+    """Un arrêt autre qu'une réponse terminée n'est jamais présenté comme une réponse normale."""
+    vrai = anthropic.Anthropic
+    transport = httpx2.MockTransport(reponse_fixe(stop_reason, "Réponse coupée"))
+    monkeypatch.setattr(agent.anthropic, "Anthropic",
+                        lambda: vrai(api_key="test", http_client=anthropic.DefaultHttpxClient(transport=transport)))
+    assert agent.agent("question") == f"Arrêt anormal ({stop_reason}) : Réponse coupée"
+
+
+
+@pytest.mark.parametrize("stop", ["end_turn", "stop_sequence"])
+def test_reponse_terminee(agent, monkeypatch, stop):
+    vrai = anthropic.Anthropic
+    transport = httpx2.MockTransport(reponse_fixe(stop, "Réponse complète"))
+    monkeypatch.setattr(agent.anthropic, "Anthropic",
+        lambda: vrai(api_key="test", http_client=anthropic.DefaultHttpxClient(transport=transport)))
+    assert agent.agent("question") == "Réponse complète"
+
+
+def test_reponse_vide_signalee(agent, monkeypatch):
+    vrai = anthropic.Anthropic
+    transport = httpx2.MockTransport(reponse_fixe("end_turn", ""))
+    monkeypatch.setattr(agent.anthropic, "Anthropic",
+        lambda: vrai(api_key="test", http_client=anthropic.DefaultHttpxClient(transport=transport)))
+    assert agent.agent("question") == "Arrêt : réponse vide du modèle."
