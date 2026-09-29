@@ -1,0 +1,38 @@
+{
+  "date_utc": "2026-09-29T07:37:13+00:00",
+  "cle": "FAUSSE clé factice (variable ANTHROPIC_API_KEY du bac à sable)",
+  "duckdb": "1.5.6",
+  "sans_verrous": {
+    "SELECT getenv('ANTHROPIC_API_KEY')": {
+      "issue": "REFUSÉE",
+      "erreur": "CatalogException : Catalog Error: Scalar Function with name getenv does not exist!"
+    },
+    "SELECT getenv('HOME')": {
+      "issue": "REFUSÉE",
+      "erreur": "CatalogException : Catalog Error: Scalar Function with name getenv does not exist!"
+    },
+    "SELECT current_setting('home_directory')": {
+      "issue": "ACCEPTÉE",
+      "fuite_de_la_cle": false,
+      "resultat": "[[\"\"]]"
+    }
+  },
+  "agent_py": {
+    "SELECT getenv('ANTHROPIC_API_KEY')": {
+      "issue": "REFUSÉE",
+      "erreur": "CatalogException : Catalog Error: Scalar Function with name getenv does not exist!",
+      "via_executer_sql": "refusée : Catalog Error: Scalar Function with name getenv does not exist!"
+    },
+    "SELECT getenv('HOME')": {
+      "issue": "REFUSÉE",
+      "erreur": "CatalogException : Catalog Error: Scalar Function with name getenv does not exist!",
+      "via_executer_sql": "refusée : Catalog Error: Scalar Function with name getenv does not exist!"
+    },
+    "SELECT current_setting('home_directory')": {
+      "issue": "ACCEPTÉE",
+      "fuite_de_la_cle": false,
+      "resultat": "[[\"\"]]",
+      "via_executer_sql": "acceptée"
+    }
+  }
+}

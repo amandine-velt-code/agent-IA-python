@@ -27,7 +27,7 @@ def test_lecture_seule(agent, requete):
     assert agent.con.execute("SELECT count(*) FROM ventes").fetchone()[0] == 5
 
 
-# Verrou 2 : aucun accès aux fichiers, au réseau ni aux variables d'environnement
+# Verrou 2 : aucun accès aux fichiers ni au réseau
 @pytest.mark.parametrize("requete", ["SELECT * FROM read_csv('/etc/passwd')",
                                      "SELECT * FROM read_text('/etc/hostname')",
                                      "COPY ventes TO '/tmp/fuite.csv'",
@@ -39,13 +39,14 @@ def test_acces_externe_coupe(agent, requete):
         sql(agent, requete)
 
 
+# Variables d'environnement : getenv n'existe pas dans le paquet Python de DuckDB (client en ligne de commande
+# seulement). Ce n'est pas un verrou de agent.py : le test échoue si une future version l'ajoute.
 def test_variables_environnement(agent, monkeypatch):
     monkeypatch.setenv("SECRET_DE_TEST", "ne-doit-pas-sortir")
-    try:
-        resultat = sql(agent, "SELECT getenv('SECRET_DE_TEST')")
-    except duckdb.Error:
-        return  # refusé : parfait
-    assert "ne-doit-pas-sortir" not in resultat
+    with pytest.raises(duckdb.CatalogException, match="getenv does not exist"):
+        sql(agent, "SELECT getenv('SECRET_DE_TEST')")
+    with pytest.raises(duckdb.CatalogException, match="getenv does not exist"):  # même sans aucun verrou
+        duckdb.connect().execute("SELECT getenv('SECRET_DE_TEST')")
 
 
 # Verrou 3 : configuration verrouillée
