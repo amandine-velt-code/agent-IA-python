@@ -23,6 +23,7 @@ Agent : decrire_tables → executer_sql (×2) → executer_sql (×2) → « Le K
 - [Résultats des vrais runs](#résultats-des-vrais-runs)
 - [Utiliser vos propres données](#utiliser-vos-propres-données)
 - [Limites](#limites)
+- [Licence](#licence)
 
 ## Démarrer en 3 minutes
 
@@ -165,3 +166,10 @@ Rejouer : `python runs/run_reel.py ventes.csv 5 normal` (votre clé API) ou
 
 Le kit PDF complet (la boucle pas à pas, cinq façons de construire un agent, une checklist avant la production) est
 offert à l'inscription à la newsletter sur [amandinevelt.fr](https://www.amandinevelt.fr/).
+
+## Licence
+
+Le code de ce dépôt est sous [licence MIT](LICENSE) : vous pouvez le réutiliser, le modifier et le redistribuer, y
+compris dans un projet commercial, à condition de conserver la mention de copyright et le texte de la licence. Il est
+fourni sans aucune garantie. Le kit PDF, lui, n'est pas couvert par cette licence : extraits citables avec mention de
+la source ; pour le partager, envoyez le lien de la page d'inscription plutôt que le fichier.
